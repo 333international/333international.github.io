@@ -1,0 +1,15 @@
+html, body { height: 100%; margin: 0; }
+* { box-sizing: border-box; }
+
+body {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.center {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: clamp(2rem, 10vw, 6rem);
+}
