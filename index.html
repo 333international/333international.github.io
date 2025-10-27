@@ -42,10 +42,10 @@
       import * as THREE from "three";
       import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
       import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-      import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+      import { TrackballControls } from "three/examples/jsm/controls/TrackballControls.js";
 
-      const MODEL_URL   = "/assets/base_basic_shaded.glb";
-      const FALLBACK_URL= "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
+      const MODEL_URL    = "/assets/base_basic_shaded.glb";
+      const FALLBACK_URL = "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
 
       const FIT = {
         normalizeScale: true,
@@ -53,7 +53,7 @@
         padding       : 1.2
       };
 
-      // Disable scrolling
+      // Disable page scrolling (view should be fixed)
       window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
       window.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
@@ -73,21 +73,20 @@
       const rim = new THREE.DirectionalLight(0x66ccff, 0.7);  rim.position.set(-3, -2, -4);
       scene.add(key, rim);
 
-      // Controls
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableZoom = false;
-      controls.enablePan = false;
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.06;
-      controls.rotateSpeed = 0.9;
-      controls.autoRotate = true;
-      controls.autoRotateSpeed = 1.75;
+      // Controls (Trackball = full 360° freedom incl. flipping)
+      const controls = new TrackballControls(camera, renderer.domElement);
+      controls.noZoom = true;               // keep UX like before
+      controls.noPan  = true;
+      controls.rotateSpeed = 3.0;           // feel
+      controls.dynamicDampingFactor = 0.12;
+      controls.staticMoving = true;
 
       function resize() {
         const w = window.innerWidth, h = window.innerHeight;
         renderer.setSize(w, h, false);
         camera.aspect = w / h;
         camera.updateProjectionMatrix();
+        if (controls.handleResize) controls.handleResize();
       }
       resize();
       window.addEventListener("resize", () => {
@@ -95,6 +94,7 @@
         if (currentModel) fitToView(currentModel);
       });
 
+      // Loaders
       const loader = new GLTFLoader();
       const draco = new DRACOLoader();
       draco.setDecoderPath("https://www.gstatic.com/draco/v1/decoders/");
@@ -113,6 +113,7 @@
         box.getSize(size);
         box.getCenter(center);
 
+        // center the model at origin
         obj.position.sub(center);
 
         if (FIT.normalizeScale) {
@@ -139,11 +140,22 @@
         camera.far  = dist * 1000;
         camera.updateProjectionMatrix();
 
-        controls.target.set(0, 0, 0);
-        controls.update();
+        // Trackball looks at origin by default; no target needed
       }
 
       let currentModel = null;
+
+      // Optional idle autorotate (since TrackballControls has no autoRotate)
+      let idleRotate = true;
+      let lastUserTime = performance.now();
+      const IDLE_DELAY_MS = 1500; // wait before spinning again
+
+      function markUserInteraction() {
+        lastUserTime = performance.now();
+      }
+      ["pointerdown","pointermove","keydown","touchstart","touchmove"].forEach(ev =>
+        window.addEventListener(ev, markUserInteraction, { passive: true })
+      );
 
       (async function boot() {
         try {
@@ -151,7 +163,7 @@
           try { gltf = await loadModel(MODEL_URL); }
           catch { gltf = await loadModel(FALLBACK_URL); }
 
-          currentModel = gltf.scene || gltf.scenes[0];
+          currentModel = gltf.scene || gltf.scenes?.[0];
 
           currentModel.traverse((o) => {
             if (o.isMesh && o.material && o.material.isMeshStandardMaterial) {
@@ -170,11 +182,17 @@
       })();
 
       function animate() {
+        const now = performance.now();
+        if (idleRotate && currentModel && now - lastUserTime > IDLE_DELAY_MS) {
+          currentModel.rotation.y += 0.004; // gentle spin
+        }
+
         controls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
       }
 
+      // Mailto on first interaction (kept as-is)
       const TO = "info@333.international";
       const SUBJECT = "Hello from the landing page";
       const BODY = "";
