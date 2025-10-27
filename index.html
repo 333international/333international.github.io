@@ -26,6 +26,47 @@
       }
     }
     </script>
+
+    <style>
+      /* Full-viewport dark canvas & no page scroll */
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: #000;
+        overflow: hidden; /* no scrolling */
+      }
+
+      /* WebGL canvas fills the viewport */
+      canvas {
+        display: block;
+        outline: none;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      /* Loading overlay */
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #aaa;
+        font: 14px/1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        pointer-events: none;
+      }
+
+      /* No-JS fallback */
+      .noscript-note {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        color: #ddd;
+        background: #000;
+        font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      }
+    </style>
   </head>
 
   <body>
