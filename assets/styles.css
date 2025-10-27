@@ -1,27 +1,20 @@
-/* Page lock: fill viewport, no scroll */
-html, body {
-  height: 100%;
-  margin: 0;
-  overflow: hidden; /* <-- prevents scrolling */
+html, body { 
+  height: 100%; 
+  margin: 0; 
+  background: #000; 
 }
 
-/* Make it clear the whole page is clickable */
-body { cursor: pointer; }
-
-/* Full-page clickable cover link */
-.page-cover {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  text-indent: -9999px; /* hide text but keep for a11y */
-  background: transparent;
+canvas { 
+  display: block; 
+  outline: none; 
 }
-
-/* Centered content */
-.center {
-  height: 100vh;           /* use viewport height */
-  display: grid;
+/* optional: lightweight loading text */
+#loading {
+  position: fixed; 
+  inset: 0; 
+  display: grid; 
   place-items: center;
-  font-family: system-ui, sans-serif;
-  font-size: 2rem;
+  color: #aaa; 
+  font: 14px/1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  pointer-events: none;
 }

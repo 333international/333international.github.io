@@ -3,30 +3,176 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>333 International BitcheZZZZZZ</title>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="assets/styles.css" />
-
-    <!-- Favicon / icons -->
-    <link rel="icon" href="assets/favicon.ico" sizes="any" type="image/x-icon">
-    <link rel="icon" type="image/png" href="assets/favicon-192.png" sizes="192x192">
-    <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" sizes="180x180">
-    <link rel="manifest" href="assets/site.webmanifest">
-    <meta name="theme-color" content="#000000">
-
+    <title>333 International — 3D</title>
+    <meta name="theme-color" content="#000000" />
   </head>
-  <body>
-    <main class="center">
-      333 International BitcheZZZZZZ
-    </main>
 
-    <!-- Full-page invisible link (Empfänger: info@333.international) -->
-    <a
-      class="page-cover"
-      href="mailto:info@333.international"
-      aria-label="Email 333 International at info@333.international"
-      title="Email 333 International"
-    >Email 333 International</a>
+  <body>
+    <div id="loading">Loading 3D…</div>
+    <canvas id="stage" aria-label="3D model"></canvas>
+
+    <!-- Three.js core + GLTFLoader -->
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- (Optional for Draco-compressed models)
+    <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/DRACOLoader.js"></script>
+    -->
+
+    <script>
+      (function(){
+        const canvas = document.getElementById('stage');
+        const loadingEl = document.getElementById('loading');
+
+        // --- Renderer / Scene / Camera ---
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.setClearColor(0x000000, 1);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 2000);
+        camera.position.set(0, 0, 3);
+
+        // Lighting (simple but nice)
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(2, 3, 4);
+        const rim = new THREE.DirectionalLight(0x66ccff, 0.6); rim.position.set(-3, -2, -4);
+        scene.add(key, rim);
+
+        // Resize / fullscreen
+        function resize() {
+          const w = window.innerWidth, h = window.innerHeight;
+          renderer.setSize(w, h, false);
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // --- Load GLB/GLTF ---
+        const loader = new THREE.GLTFLoader();
+
+        // (Optional) enable Draco if your model is Draco-compressed
+        // const draco = new THREE.DRACOLoader();
+        // draco.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+        // loader.setDRACOLoader(draco);
+
+        const MODEL_URL = 'assets/base_basic_shaded.glb'; // <-- change to your file
+
+        let model = null;
+        loader.load(
+          MODEL_URL,
+          (gltf) => {
+            model = gltf.scene || gltf.scenes[0];
+            // Normalize transform a bit
+            model.traverse((o) => {
+              if (o.isMesh) {
+                o.castShadow = false;
+                o.receiveShadow = false;
+                if (o.material && o.material.isMeshStandardMaterial) {
+                  o.material.roughness = Math.min(0.8, o.material.roughness ?? 0.8);
+                  o.material.metalness = o.material.metalness ?? 0.2;
+                }
+              }
+            });
+            scene.add(model);
+            frameCameraToObject(model, 1.2); // 1.2 = padding multiplier
+            loadingEl.style.display = 'none';
+            animate();
+          },
+          (xhr) => {
+            // progress (optional)
+            if (xhr.total) {
+              const pct = Math.round((xhr.loaded / xhr.total) * 100);
+              loadingEl.textContent = `Loading 3D… ${pct}%`;
+            }
+          },
+          (err) => {
+            console.error('GLTF load error:', err);
+            loadingEl.textContent = 'Failed to load 3D model.';
+          }
+        );
+
+        // Fit camera so model fills the view nicely
+        function frameCameraToObject(object3D, padding = 1.2) {
+          const box = new THREE.Box3().setFromObject(object3D);
+          const size = new THREE.Vector3();
+          const center = new THREE.Vector3();
+          box.getSize(size);
+          box.getCenter(center);
+
+          // Compute distance from size + FOV
+          const maxSize = Math.max(size.x, size.y, size.z);
+          const fov = camera.fov * (Math.PI / 180);
+          let dist = (maxSize / (2 * Math.tan(fov / 2))) * padding;
+
+          // Clamp a little, just in case the model is super small
+          dist = Math.max(dist, 1.5);
+
+          // Position camera on a diagonal for depth, look at center
+          camera.position.copy(center.clone().add(new THREE.Vector3(dist, dist * 0.4, dist)));
+          camera.near = Math.max(0.1, dist * 0.01);
+          camera.far = dist * 100;
+          camera.updateProjectionMatrix();
+          camera.lookAt(center);
+
+          // Optionally re-center the model so it rotates around its own middle
+          const pivot = new THREE.Object3D();
+          pivot.position.copy(center);
+          scene.add(pivot);
+          pivot.add(object3D);
+          object3D.position.sub(center);
+          // store pivot for rotation
+          modelPivot = pivot;
+        }
+
+        // Pointer-based subtle rotation
+        const cursor = { x: 0, y: 0 };
+        window.addEventListener('pointermove', (e) => {
+          cursor.x = (e.clientX / window.innerWidth) * 2 - 1;
+          cursor.y = (e.clientY / window.innerHeight) * 2 - 1;
+        }, { passive: true });
+
+        let modelPivot = null;
+        function animate() {
+          if (modelPivot) {
+            // Idle spin + pointer influence
+            modelPivot.rotation.y += 0.005 + cursor.x * 0.01;
+            modelPivot.rotation.x += (cursor.y * 0.01);
+          }
+          renderer.render(scene, camera);
+          requestAnimationFrame(animate);
+        }
+
+        // --- First interaction → mailto ---
+        const TO = 'info@333.international';
+        const SUBJECT = 'Hello from the landing page';
+        const BODY = ''; // keep empty or set default text
+
+        function buildMailto(to, subject, body) {
+          const s = subject ? `?subject=${encodeURIComponent(subject)}` : '';
+          const b = body ? (s ? '&' : '?') + `body=${encodeURIComponent(body)}` : '';
+          return `mailto:${to}${s}${b}`;
+        }
+        function launchMailto() {
+          const href = buildMailto(TO, SUBJECT, BODY);
+          const a = document.createElement('a');
+          a.href = href;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          try { a.click(); } catch(e) { window.location.href = href; }
+          setTimeout(() => a.remove(), 1000);
+        }
+        let mailed = false;
+        function onFirstInteraction() {
+          if (mailed) return;
+          mailed = true;
+          launchMailto();
+        }
+        ['pointerdown','touchstart','keydown','wheel'].forEach(ev =>
+          window.addEventListener(ev, onFirstInteraction, { passive: true, once: true })
+        );
+      })();
+    </script>
   </body>
 </html>
