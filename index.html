@@ -6,23 +6,32 @@
     <title>333 International Landing Page</title>
     <meta name="theme-color" content="#000000" />
 
-    <!-- External styles (use absolute path if /assets/style.css exists at site root) -->
+    <!-- 🔧 If index.html is at site root and style.css is at /assets/style.css, keep this: -->
     <link rel="stylesheet" href="/assets/style.css" />
+    <!-- If index.html and assets/ are siblings (./assets/style.css), change to: -->
+    <!-- <link rel="stylesheet" href="./assets/style.css" /> -->
 
-    <!-- Icons / manifest (you already used absolute paths here) -->
+    <!-- Icons / manifest -->
     <link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
     <link rel="shortcut icon" href="/assets/favicon.ico" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-title" content="333" />
     <link rel="manifest" href="/assets/site.webmanifest" />
+
+    <!-- ✅ Import map: tells the browser where "three" and "three/examples/jsm" live -->
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+    </script>
   </head>
 
   <body>
-    <!-- Minimal loading indicator -->
     <div id="loading">Loading 3D model…</div>
-
-    <!-- Full-viewport WebGL canvas -->
     <canvas id="stage" aria-label="3D model"></canvas>
 
     <noscript>
@@ -32,16 +41,16 @@
       </div>
     </noscript>
 
-    <!-- Three.js (ES modules) -->
+    <!-- App (ES module) -->
     <script type="module">
-      import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-      import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-      import { DRACOLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/DRACOLoader.js";
+      import * as THREE from "three";
+      import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+      import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 
       const canvas = document.getElementById("stage");
       const loadingEl = document.getElementById("loading");
 
-      // --------- Renderer / Scene / Camera ---------
+      // -------- Renderer / Scene / Camera --------
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -66,23 +75,23 @@
       window.addEventListener("resize", resize);
 
       const cursor = { x: 0, y: 0 };
-      window.addEventListener(
-        "pointermove",
-        (e) => {
-          cursor.x = (e.clientX / window.innerWidth) * 2 - 1;
-          cursor.y = (e.clientY / window.innerHeight) * 2 - 1;
-        },
-        { passive: true }
-      );
+      window.addEventListener("pointermove", (e) => {
+        cursor.x = (e.clientX / window.innerWidth) * 2 - 1;
+        cursor.y = (e.clientY / window.innerHeight) * 2 - 1;
+      }, { passive: true });
 
-      // --------- GLTF loader (with Draco) ---------
+      // -------- GLTF loader (with Draco) --------
       const loader = new GLTFLoader();
       const draco = new DRACOLoader();
-      draco.setDecoderPath("https://www.gstatic.com/draco/v1/decoders/"); // trailing slash required
+      draco.setDecoderPath("https://www.gstatic.com/draco/v1/decoders/");
       loader.setDRACOLoader(draco);
 
-      // *** Adjust these paths as needed ***
-      const MODEL_URL = "/assets/base_basic_shaded.glb"; // absolute path (change if your file lives elsewhere)
+      // 🔧 Point this to your actual model location:
+      // If the file is at /assets/base_basic_shaded.glb on your server:
+      const MODEL_URL = "/assets/base_basic_shaded.glb";
+      // or, if it sits next to index.html in ./assets/:
+      // const MODEL_URL = "./assets/base_basic_shaded.glb";
+
       const FALLBACK_URL =
         "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
 
@@ -137,7 +146,7 @@
 
       (async function boot() {
         if (location.protocol === "file:") {
-          loadingEl.textContent = "Run via http:// (not file://). Use a local server.";
+          loadingEl.textContent = "Run via http(s):// (not file://).";
           console.warn("Serve over http:// (e.g., `npx serve`). Browsers block fetches on file://");
         }
 
@@ -177,7 +186,7 @@
         requestAnimationFrame(animate);
       }
 
-      // --------- First interaction -> mailto (no overlay) ---------
+      // -------- First interaction -> mailto (no overlay) --------
       const TO = "info@333.international";
       const SUBJECT = "Hello from the landing page";
       const BODY = "";
