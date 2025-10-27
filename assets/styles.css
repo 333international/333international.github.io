@@ -5,6 +5,7 @@ body {
   margin: 0;
   background: #000;
   overflow: hidden; /* no scrolling */
+  object-fit: contain;
 }
 
 /* WebGL canvas fills the viewport */
@@ -13,7 +14,6 @@ canvas {
   outline: none;
   width: 100vw;
   height: 100vh;
-  object-fit: contain;
 }
 
 /* Loading overlay */
