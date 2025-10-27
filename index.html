@@ -6,7 +6,7 @@
     <title>333 International Landing Page</title>
     <meta name="theme-color" content="#000000" />
 
-    <!-- Styles (change to ./assets/style.css if index.html and assets/ are siblings) -->
+    <!-- External CSS (change to ./assets/style.css if needed) -->
     <link rel="stylesheet" href="/assets/style.css" />
 
     <!-- Favicons / manifest -->
@@ -29,10 +29,7 @@
   </head>
 
   <body>
-    <!-- Loading indicator -->
     <div id="loading">Loading 3D model…</div>
-
-    <!-- Full-viewport WebGL canvas -->
     <canvas id="stage" aria-label="3D model"></canvas>
 
     <noscript>
@@ -48,29 +45,39 @@
       import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
       import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-      const canvas = document.getElementById("stage");
-      const loadingEl = document.getElementById("loading");
+      // ---------- Config ----------
+      const MODEL_URL   = "/assets/base_basic_shaded.glb"; // change if needed
+      const FALLBACK_URL= "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
+      const FIT = {
+        normalizeScale: true,  // scale model so its largest side == targetSize
+        targetSize    : 2.0,   // world units after normalization
+        padding       : 1.2    // 1.0 = tight, >1 adds safe border
+      };
 
-      // Prevent page scrolling (wheel/touch)
+      // ---------- No page scrolling ----------
       window.addEventListener("wheel", (e) => e.preventDefault(), { passive: false });
       window.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
-      // Renderer / Scene / Camera
+      // ---------- DOM ----------
+      const canvas = document.getElementById("stage");
+      const loadingEl = document.getElementById("loading");
+
+      // ---------- Three: renderer / scene / camera ----------
       const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
       renderer.outputColorSpace = THREE.SRGBColorSpace;
       renderer.setClearColor(0x000000, 1);
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 5000);
+      const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 10000);
 
       // Lights
-      scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-      const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(2, 3, 4);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+      const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(3, 4, 5);
       const rim = new THREE.DirectionalLight(0x66ccff, 0.7);  rim.position.set(-3, -2, -4);
       scene.add(key, rim);
 
-      // OrbitControls (rotate-only)
+      // Controls: rotate-only
       const controls = new OrbitControls(camera, renderer.domElement);
       controls.enableZoom = false;
       controls.enablePan = false;
@@ -80,7 +87,6 @@
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.75;
 
-      // Resize
       function resize() {
         const w = window.innerWidth, h = window.innerHeight;
         renderer.setSize(w, h, false);
@@ -88,18 +94,17 @@
         camera.updateProjectionMatrix();
       }
       resize();
-      window.addEventListener("resize", resize);
+      window.addEventListener("resize", () => {
+        resize();
+        // Re-fit after resize so nothing clips on extreme aspect changes
+        if (currentModel) fitToView(currentModel);
+      });
 
-      // Load GLB/GLTF
+      // ---------- Load GLB/GLTF ----------
       const loader = new GLTFLoader();
       const draco = new DRACOLoader();
       draco.setDecoderPath("https://www.gstatic.com/draco/v1/decoders/");
       loader.setDRACOLoader(draco);
-
-      // 🔧 Set your actual model path here
-      const MODEL_URL = "/assets/base_basic_shaded.glb";
-      const FALLBACK_URL =
-        "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/DamagedHelmet/glTF-Binary/DamagedHelmet.glb";
 
       function loadModel(url) {
         return new Promise((resolve, reject) => {
@@ -119,33 +124,50 @@
         });
       }
 
-      // Center and frame the model perfectly
-      function centerAndFrame(object3D, pad = 1.15) {
-        const box = new THREE.Box3().setFromObject(object3D);
+      // ---------- Fit helpers ----------
+      function centerAndOptionallyNormalize(obj) {
+        // Compute initial bounding box
+        const box = new THREE.Box3().setFromObject(obj);
         const size = new THREE.Vector3();
         const center = new THREE.Vector3();
         box.getSize(size);
         box.getCenter(center);
 
-        // Move the model so its center is at the origin
-        object3D.position.sub(center);
-        scene.add(object3D);
+        // Move model so its center sits at origin (0,0,0)
+        obj.position.sub(center);
 
-        // Compute distance so model fits the camera FOV
-        const maxSize = Math.max(size.x, size.y, size.z);
-        const fov = (camera.fov * Math.PI) / 180;
-        let dist = (maxSize / (2 * Math.tan(fov / 2))) * pad;
-        dist = Math.max(dist, 1.5);
+        // Optionally normalize scale (so the largest side equals targetSize)
+        if (FIT.normalizeScale) {
+          const maxSide = Math.max(size.x, size.y, size.z) || 1.0;
+          const scale = FIT.targetSize / maxSide;
+          obj.scale.multiplyScalar(scale);
+        }
+      }
 
-        // Position camera on Z axis, looking at origin
+      function fitToView(obj) {
+        // Recompute bounds AFTER centering/scaling
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const vFOV = THREE.MathUtils.degToRad(camera.fov);
+        const hFOV = 2 * Math.atan(Math.tan(vFOV / 2) * camera.aspect);
+
+        // distance needed to fit height & width
+        const distV = (size.y / 2) / Math.tan(vFOV / 2);
+        const distH = (size.x / 2) / Math.tan(hFOV / 2);
+        const dist  = Math.max(distV, distH) * FIT.padding;
+
         camera.position.set(0, 0, dist);
-        camera.near = Math.max(0.1, dist * 0.01);
-        camera.far = dist * 100;
+        camera.near = Math.max(0.01, dist * 0.001);
+        camera.far  = dist * 1000;
         camera.updateProjectionMatrix();
 
         controls.target.set(0, 0, 0);
         controls.update();
       }
+
+      let currentModel = null;
 
       (async function boot() {
         if (location.protocol === "file:") {
@@ -157,24 +179,28 @@
           let gltf;
           try {
             gltf = await loadModel(MODEL_URL);
-          } catch (e) {
-            console.warn("Primary model failed, trying fallback…");
+          } catch {
             gltf = await loadModel(FALLBACK_URL);
           }
 
-          const model = gltf.scene || gltf.scenes[0];
-          model.traverse((o) => {
+          currentModel = gltf.scene || gltf.scenes[0];
+
+          // Make materials a bit friendlier
+          currentModel.traverse((o) => {
             if (o.isMesh && o.material && o.material.isMeshStandardMaterial) {
               o.material.roughness ??= 0.5;
               o.material.metalness ??= 0.2;
             }
           });
 
-          centerAndFrame(model);
+          centerAndOptionallyNormalize(currentModel);
+          scene.add(currentModel);
+          fitToView(currentModel);
+
           loadingEl.style.display = "none";
           animate();
         } catch (e) {
-          console.error("Final load error:", e);
+          console.error("Model load error:", e);
           loadingEl.textContent = "Failed to load model. See console.";
         }
       })();
@@ -185,7 +211,7 @@
         requestAnimationFrame(animate);
       }
 
-      // First interaction -> mailto (no overlay)
+      // ---------- First interaction -> mailto ----------
       const TO = "info@333.international";
       const SUBJECT = "Hello from the landing page";
       const BODY = "";
