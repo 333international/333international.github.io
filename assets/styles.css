@@ -7,14 +7,6 @@ body {
   overflow: hidden; /* no scrolling */
 }
 
-.container {
-  width: 25vw;
-  height: 100vh;
-  object-fit: contain;
-  align-items: center;
-  justify-content: center;
-}
-
 /* WebGL canvas fills the viewport */
 canvas {
   display: block;
