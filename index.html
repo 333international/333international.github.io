@@ -140,24 +140,23 @@
         camera.near = Math.max(0.01, dist * 0.001);
         camera.far  = dist * 1000;
         camera.updateProjectionMatrix();
-
-        // Trackball looks at origin by default; no target needed
+        // Trackball looks at origin
       }
 
       let currentModel = null;
 
-      // Optional idle autorotate (since TrackballControls has no autoRotate)
-      let idleRotate = true;
-      let lastUserTime = performance.now();
-      const IDLE_DELAY_MS = 1500; // wait before spinning again
+      // === Autorotate logic: spin whenever not interacting (no delay) ===
+      const ROTATE_SPEED = 0.004;
+      let isInteracting = false;
 
-      function markUserInteraction() {
-        lastUserTime = performance.now();
-      }
-      ["pointerdown","pointermove","keydown","touchstart","touchmove"].forEach(ev =>
-        window.addEventListener(ev, markUserInteraction, { passive: true })
-      );
+      controls.addEventListener('start', () => { isInteracting = true; });
+      controls.addEventListener('end',   () => { 
+        isInteracting = false; 
+        // also used for first-click mailto (see below)
+        maybeLaunchMailtoOnRelease();
+      });
 
+      // --- Model boot ---
       (async function boot() {
         try {
           let gltf;
@@ -183,17 +182,15 @@
       })();
 
       function animate() {
-        const now = performance.now();
-        if (idleRotate && currentModel && now - lastUserTime > IDLE_DELAY_MS) {
-          currentModel.rotation.y += 0.004; // gentle spin
+        if (currentModel && !isInteracting) {
+          currentModel.rotation.y += ROTATE_SPEED; // spins immediately when interaction stops
         }
-
         controls.update();
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
       }
 
-      // Mailto on first interaction (kept as-is)
+      // === Mailto: fire ONLY on release of the first pointer interaction ===
       const TO = "info@333.international";
       const SUBJECT = "Hello from the landing page";
       const BODY = "";
@@ -215,14 +212,23 @@
       }
 
       let mailed = false;
-      function onFirstInteraction() {
-        if (mailed) return;
-        mailed = true;
-        launchMailto();
-      }
+      let mailtoArmed = false; // becomes true on the VERY first pointer down
 
-      ["pointerdown", "touchstart", "keydown", "wheel"]
-        .forEach((ev) => window.addEventListener(ev, onFirstInteraction, { passive: true, once: true }));
+      // Arm on first pointer/touch down only (no keyboard/wheel)
+      function armMailtoOnce() {
+        if (!mailed && !mailtoArmed) mailtoArmed = true;
+      }
+      window.addEventListener("pointerdown", armMailtoOnce, { passive: true, once: true });
+      window.addEventListener("touchstart", armMailtoOnce,   { passive: true, once: true });
+
+      // Fire when the user RELEASES after that first interaction (Trackball 'end')
+      function maybeLaunchMailtoOnRelease() {
+        if (!mailed && mailtoArmed) {
+          mailed = true;
+          mailtoArmed = false;
+          launchMailto();
+        }
+      }
     </script>
   </body>
 </html>
