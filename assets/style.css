@@ -3,7 +3,7 @@ html,
 body {
   height: 100%;
   margin: 0;
-  background: red;
+  background: #000;
   overflow: hidden; /* no scrolling */
 }
 
@@ -35,6 +35,6 @@ canvas {
   display: grid;
   place-items: center;
   color: #ddd;
-  background: red;
+  background: #000;
   font: 14px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
