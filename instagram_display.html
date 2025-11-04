@@ -1,0 +1,21 @@
+<section id="ig-grid"></section>
+<script>
+  fetch("/instagram/index.json")
+    .then(r => r.json())
+    .then(items => {
+      // newest first
+      items.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const el = document.getElementById("ig-grid");
+      el.innerHTML = items
+        .map(
+          (item) => `
+          <article class="ig-card">
+            <a href="${item.permalink}" target="_blank" rel="noopener">
+              <img src="/instagram/${item.filename}" alt="${item.caption || "Instagram post"}">
+            </a>
+          </article>
+        `
+        )
+        .join("");
+    });
+</script>
